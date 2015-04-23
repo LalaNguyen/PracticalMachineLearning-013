@@ -8,7 +8,14 @@ output: html_document
 
 ### I. Cleaning & Prepocessing Data
 
-In this assignment, we will require **caret**, **rattle** and **rpart** to workout the solution. In addition, preprocessing the raw file is trivial to remove noise data 
+In this assignment, we will require **caret** and **randomForest** library to workout the solution. In addition, preprocessing the raw file is trivial to remove noise data
+
+```{r, results='asis',echo=FALSE, message=FALSE,warning=FALSE}
+require(ggplot2)
+require(caret)
+require(rattle)
+
+```
 
 ```{r,results='markup',message=FALSE,warning=FALSE}
 
@@ -33,7 +40,7 @@ train <- train[,-c(1:7)]
 test <- test[,-c(1:7)]
 ```
 
-Finally, Data is now clean and ready to be extracted. It's often useful to take a look at initial data for me. From the histogram, **class A** frequently occurs while **class D** has the least number of occurences.
+Data is now clean and ready to be extracted. It's often useful to take a look at initial data for me. From the histogram, **class A** frequently occurs while **class D** has the least number of occurences.
 
 ```{r,results='asis',message=FALSE,warning=FALSE}
 ggplot(train, aes( x = classe)) +
@@ -42,30 +49,50 @@ ggplot(train, aes( x = classe)) +
 
 ### II. Trainning and Testing
 
-We are given **train set** and **test set**, predicting a **class** in test set would require a prediction model to be built first. In this task, we will build up model by using recursive partitioning for classification provided from packet **rpart** on our **classe feature** .
+We are given **train set** and **test set**, predicting a **class** in test set would require a prediction model to be built first. In this task, we will build up model by using random forest for classification provided from packet **randomForest** on our **classe feature** .
 
-```{r,results='asis',message=FALSE,warning=FALSE}
-# Train data
-modFit <- train(classe ~., method ="rpart", data = train)
-# Tree visualization of our training data
-fancyRpartPlot(modFit$finalModel)
+Besides, we will now perform cross validation on our training data. At first, we will split our sample data with the proposion of 75:25 for training:testing. Afterwards, confusion matrix is constructed by comparing the accuracy of the model's prediction with labeled data in sample training data.
+
+
+```{r,results='markup',message=FALSE,warning=FALSE, echo = FALSE}
+# Devide our sample data into train and test to perform
+# cross validation
+set.seed(2)
+inTrain <- createDataPartition(train$classe, p = 0.75, list = FALSE)
+sampleTrain <- train[inTrain,]
+sampleTest <- train[-inTrain,]
+
+# Train our model on sampleTrain 
+modFit <- train(classe ~., method ="rf", data = sampleTrain, prox = FALSE)
+
 ```
 
-A quick glance at the graph reveals that if **roll_belt < 130 ** and **pitch_forearm > -34** and **magnet_dumbbell_y < 440** and **roll_forearm > 124** would place our subject into **class C**. In the predicting part, we will try to verify this hypothesis.
+We achieve very high accuracy by using random forest algorithm. Our in-sample error rate is **0.65%**.
+
+**Warning: Random Forest takes approximately 3 hours on my computer to finish computing**
+
+```{r,results='markup',message=FALSE,warning=FALSE,echo=FALSE}
+
+# Undoubtedly, out-of-sample error of training dataset is also low
+sampleTest_preds <-predict(modFit, newdata = sampleTest)
+# The accuracy of our model is remarkbly low using rpart...
+test_tab <-table(sampleTest_preds, sampleTest$classe)
+print("Test Sample of Training Data")
+confusionMatrix(test_tab)[3]$overall[1]
+```
+
+In addition, the out-of-sample err is also observed at the rate of approximately **0.65%**. We can then make adequate prediction on our 20 test cases.
+
 
 ```{r,results='markup',message=FALSE,warning=FALSE}
 # Predict new data
 preds <- predict(modFit, newdata = test)
 # Filter and evaluate our hypothesis
-test$classe <- preds
-isC <- test$classe == "C"
-rel <- test[isC,c("roll_belt","pitch_forearm","magnet_dumbbell_y","roll_forearm")]
-print(rel, quote = TRUE, row.names = FALSE)
+print("Prediction on 20 cases")
+preds
 ```
 
-It's nice to see that they're all fit the hypothesis's condition and thus, our prediction is doing good job.
-
-Finally, here is my session information for library information.
+Finally, here is my session for library information.
 
 ```{r,results='markup', warning=FALSE}
 sessionInfo()
